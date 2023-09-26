@@ -27,81 +27,31 @@ from torch.nn.utils.rnn import pad_sequence
 import re
 from transformers import AutoFeatureExtractor, ASTForAudioClassification
 from torch.utils.data import DataLoader
+from emotion_utils.utils.utils import *
+from torch.utils.data import Dataset
+import glob
 
+
+import configparser
+config = configparser.ConfigParser()
+config.read("config.ini")
+BATCH_SIZE = int(config['TRAINING']['BATCH_SIZE'])
+MAX_EPOCH = int(config['TRAINING']['MAX_EPOCH'])
 
 llogger = CSVLogger("emotions", 'classification')
 
 
-
-from torch.utils.data import Dataset
-import glob
-
-class AudioDataset(Dataset):
-    """
-        Custom dataset class for loading audio dataset.
-        meta_df: dataframe containing file_name (without 
-                the .wav extension) and the category (labels) 
-        directory: regular expression for the directory to look 
-                for wav files. (e.g. /dataset/speech/*.wav)
-    """
-    
-    def __init__(self, meta_df, directory, **kwargs):
-        self.meta_df = meta_df
-        self.directory = directory
-        self.audio_path_list = glob.glob(directory)
-        category = self.meta_df['category'].unique()
-        self.t_dict = dict(zip(category,range(len(category))))
-        print(category)
-        self.kwargs = kwargs
-    
-    def __len__(self):
-        return len(self.audio_path_list)
-    
-    def __getitem__(self, idx):
-        audio_path = self.audio_path_list[idx]
-        audio_name = os.path.basename(audio_path).split('.')[0]
-        targets = self.meta_df.loc[idx,[ 'category']].values[0]
-        signal, sr = torchaudio.load(audio_path,  )
-        
-        feature_extractor = AutoFeatureExtractor.from_pretrained("ast-finetuned-audioset-10-10-0.4593")
-        signal =  signal[0]
-        return feature_extractor(signal, sampling_rate=16000, return_tensors="pt"), self.t_dict[targets]
-    
-    
-    
-
-
 data_path = 'IEMOCAP_full_release/Session*/sentences/wav/Ses*/*.wav'
-csv_file_paths = 'IEMOCAP_full_release/Session*/dialog/EmoEvaluation/Categorical/Ses*.txt'
+csv_file_path_reg = 'IEMOCAP_full_release/Session*/dialog/EmoEvaluation/Categorical/Ses*.txt'
+dialogues_path_reg = 'IEMOCAP_full_release/Session*/dialog/transcriptions/Ses*.txt'
 
-csv_files = glob.glob(csv_file_paths)
+cat_df = get_meta(csv_file_path_reg, 'category')
+dial_df  =get_meta(dialogues_path_reg, 'dial')
 
-
-def get_name_category_from_path(path):
-    file_name_list = []
-    emotion_list = []
-    with open(path, 'r') as f:
-        for line in f.readlines():
-            file_name_list.append(re.findall('Ses.*[A-Z][0-9]{3}', line)[0])
-            emotion_list.append(re.findall(':.*;', line)[0][1:-1].lower())
-    return file_name_list, emotion_list
-        
-
-file_list = []
-category_list = []
-for file in csv_files:
-    f, e = get_name_category_from_path(file)
-    file_list.extend(f)
-    category_list.extend(e)
-meta_df = pd.DataFrame(
-    {
-        'file':file_list,
-        'category':category_list
-    }
-)
-
-
+meta_df = pd.merge(cat_df, dial_df, on = 'file').groupby(['file','dial']).head(1).reset_index().drop(columns = ['index'])
 meta_df['category'] = meta_df['category'].str.replace(';.*','', regex=True)
+
+
 
 class LighteningModel(pl.LightningModule):
     def __init__(self, input_size=48000, num_classes=10, hidden_size = 200, num_heads = 5, num_layers_tx  = 2):
@@ -164,15 +114,14 @@ class LighteningModel(pl.LightningModule):
 
 
 model = LighteningModel()
-BATCH_SIZE = 32
 
-dataset = AudioDataset(meta_df,data_path)
+dataset = AudioDataset(meta_df,data_path, modality='audio')
 train_set, val_set = torch.utils.data.random_split(dataset, [0.8, 0.2],)
 
 
 train_dataloader = DataLoader(train_set, batch_size=BATCH_SIZE, shuffle = True, num_workers=8, drop_last=True, )
 test_dataloader = DataLoader(val_set, batch_size=BATCH_SIZE, shuffle=True, num_workers=8, drop_last=True)
 
-trainer = pl.Trainer( max_epochs=500, gradient_clip_val=0, logger = llogger)
+trainer = pl.Trainer( max_epochs=MAX_EPOCH, gradient_clip_val=0, logger = llogger)
 
 trainer.fit(model, train_dataloader, test_dataloader)

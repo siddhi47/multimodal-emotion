@@ -30,160 +30,32 @@ from lightning.pytorch.loggers import CSVLogger
 from torch.nn.utils.rnn import pad_sequence
 import re
 from transformers import AutoFeatureExtractor, ASTForAudioClassification
-
+import glob
 from torch.utils.data import DataLoader
+from emotion_utils.utils.utils import *
+from transformers import BertTokenizer, BertModel
+from torch.utils.data import Dataset
+
+import configparser
+config = configparser.ConfigParser()
+config.read("config.ini")
+BATCH_SIZE = int(config['TRAINING']['BATCH_SIZE'])
+MAX_EPOCH = int(config['TRAINING']['MAX_EPOCH'])
+
 
 
 llogger = CSVLogger("emotions", 'classification-lm')
 
 
 data_path = 'IEMOCAP_full_release/Session*/sentences/wav/Ses*/*.wav'
-files = glob.glob(data_path)
-file_name = [x.split(os.sep)[-1].split('.')[0] for x in files]
-
-
-csv_file_paths = 'IEMOCAP_full_release/Session*/dialog/EmoEvaluation/Categorical/Ses*.txt'
-
-
+csv_file_path_reg = 'IEMOCAP_full_release/Session*/dialog/EmoEvaluation/Categorical/Ses*.txt'
 dialogues_path_reg = 'IEMOCAP_full_release/Session*/dialog/transcriptions/Ses*.txt'
-dialogues_paths = glob.glob(dialogues_path_reg)
 
+cat_df = get_meta(csv_file_path_reg, 'category')
+dial_df  =get_meta(dialogues_path_reg, 'dial')
+meta_df = pd.merge(cat_df, dial_df, on = 'file').groupby(['file','dial']).head(1).reset_index().drop(columns = ['index'])
+meta_df['category'] = meta_df['category'].str.replace(';.*','', regex=True)
 
-csv_files = glob.glob(csv_file_paths)
-
-
-
-
-
-def get_name_category_from_path(path):
-    file_name_list = []
-    emotion_list = []
-    with open(path, 'r') as f:
-        for line in f.readlines():
-            file_name_list.append(re.findall('Ses.*[A-Z][0-9]{3}', line)[0])
-            emotion_list.append(re.findall(':.*;', line)[0][1:-1].lower())
-    return file_name_list, emotion_list
-        
-
-
-def get_name_dial_from_path(path):
-    file_name_list = []
-    dial_list = []
-    with open(path, 'r') as f:
-        for line in f.readlines():
-            file_name_list.append(re.findall('Ses.*[A-Z][0-9]{3}', line)[0])
-            dial_list.append(re.findall(':.*', line)[0][1:])
-    return file_name_list, dial_list
-
-
-file_list = []
-category_list = []
-for file in csv_files:
-    f, e = get_name_category_from_path(file)
-    file_list.extend(f)
-    category_list.extend(e)
-cat_df = pd.DataFrame(
-    {
-        'file':file_list,
-        'category':category_list
-    }
-)
-
-
-file_list = []
-dial_list = []
-for file in dialogues_paths:
-    try:
-        f, d = get_name_dial_from_path(file)
-        file_list.extend(f)
-        dial_list.extend(d)
-    except Exception as e:
-        continue
-dial_df = pd.DataFrame(
-    {
-        'file':file_list,
-        'dial':dial_list
-    }
-)
-
-
-cat_df['category'] = cat_df['category'].str.replace(';.*','')
-
-
-cat_df['category'].shape
-
-
-cat_df[cat_df['file']=='Ses04F_script02_2_F000']
-
-
-meta_df = pd.merge(cat_df, dial_df, on = 'file').groupby(['file','category','dial']).count().reset_index()
-
-
-meta_df['category'].unique()
-
-
-from torch.utils.data import Dataset
-import glob
-from transformers import BertTokenizer, BertModel
-
-class AudioDataset(Dataset, ):
-    """
-        Custom dataset class for loading audio dataset.
-        meta_df: dataframe containing file_name (without 
-                the .wav extension) and the category (labels) 
-        directory: regular expression for the directory to look 
-                for wav files. (e.g. /dataset/speech/*.wav)
-    """
-    
-    def __init__(self, meta_df, directory,modality = 'all', **kwargs):
-        self.meta_df = meta_df
-        self.directory = directory
-        self.audio_path_list = glob.glob(directory)
-        category = self.meta_df['category'].unique()
-        self.t_dict = dict(zip(category,range(len(category))))
-        self.kwargs = kwargs
-        self.modality = modality
-    
-    def __len__(self):
-        return len(self.meta_df)
-    
-    def __getitem__(self, idx):
-        audio_path = self.audio_path_list[idx]
-        audio_name = os.path.basename(audio_path).split('.')[0]
-        dialogue = self.meta_df.loc[idx,['dial']].values[0]
-        targets = self.meta_df.loc[idx,[ 'category']].values[0]
-        audio_feature = None
-        encoded_text = None
-        if self.modality == 'audio' :
-            signal, sr = torchaudio.load(audio_path, )
-            signal =  signal[0]
-            feature_extractor = AutoFeatureExtractor.from_pretrained("ast-finetuned-audioset-10-10-0.4593")
-            audio_feature = feature_extractor(signal, sampling_rate=sr, return_tensors="pt")
-            
-            return audio_feature, self.t_dict[targets]
-            
-        elif self.modality == 'text':
-            
-            tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
-            encoded_text = tokenizer(dialogue,return_tensors="pt",  padding="max_length", max_length=50, add_special_tokens=True, truncation=True,)
-            return  encoded_text, self.t_dict[targets]
-        
-        else:
-            signal, sr = torchaudio.load(audio_path, )
-            signal =  signal[0]
-            feature_extractor = AutoFeatureExtractor.from_pretrained("ast-finetuned-audioset-10-10-0.4593")
-
-            audio_feature = feature_extractor(signal, sampling_rate=sr, return_tensors="pt")
-            tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
-            encoded_text = tokenizer(dialogue,return_tensors="pt",  padding="max_length", max_length=50, add_special_tokens=True, truncation=True,)
-            return audio_feature, encoded_text, self.t_dict[targets]
-    
-
-
-asset = AudioDataset(meta_df,data_path)
-
-
-# next(iter(dataloader))[1]['input_ids'].shape
 
 
 class LighteningModel(pl.LightningModule):
@@ -276,19 +148,10 @@ class LighteningModel(pl.LightningModule):
 model = LighteningModel()
 
 
-next(model.parameters()).is_cuda
 
-
-BATCH_SIZE = 16
 
 
 dataset = AudioDataset(meta_df,data_path, modality = 'all')
-
-
-len(dataset)
-
-
-meta_df.shape
 
 
 train_set, val_set = torch.utils.data.random_split(dataset, [0.8, 0.2],)
@@ -299,16 +162,8 @@ train_dataloader = DataLoader(train_set, batch_size=BATCH_SIZE, shuffle = True, 
 test_dataloader = DataLoader(val_set, batch_size=BATCH_SIZE, shuffle=True, num_workers=8, drop_last=True)
 
 
-trainer = pl.Trainer( max_epochs=500, gradient_clip_val=0, logger = llogger, )
+trainer = pl.Trainer( max_epochs=MAX_EPOCH, gradient_clip_val=0, logger = llogger, )
 
 
 trainer.fit(model, train_dataloader, test_dataloader, )
-
-
-
-
-
-
-
-
 
