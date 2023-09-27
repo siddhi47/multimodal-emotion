@@ -35,7 +35,7 @@ from torch.utils.data import DataLoader
 from emotion_utils.utils.utils import *
 from transformers import BertTokenizer, BertModel
 from torch.utils.data import Dataset
-
+from torch.utils.data import WeightedRandomSampler
 import configparser
 config = configparser.ConfigParser()
 config.read("config.ini")
@@ -56,7 +56,10 @@ dial_df  =get_meta(dialogues_path_reg, 'dial')
 meta_df = pd.merge(cat_df, dial_df, on = 'file').groupby(['file','dial']).head(1).reset_index().drop(columns = ['index'])
 meta_df['category'] = meta_df['category'].str.replace(';.*','', regex=True)
 
+# weighted random sampling
 
+class_counts = meta_df.category.value_counts()
+sample_weights = [1/class_counts[i] for i in meta_df.category.values]
 
 class LighteningModel(pl.LightningModule):
     def __init__(self, input_size=48000, num_classes=10, hidden_size = 200, num_heads = 5, num_layers_tx  = 2):
@@ -146,17 +149,14 @@ class LighteningModel(pl.LightningModule):
 model = LighteningModel()
 
 
-
-
-
 dataset = AudioDataset(meta_df,data_path, modality = 'all')
 
 
 train_set, val_set = torch.utils.data.random_split(dataset, [0.8, 0.2],)
 
 
-# sampler = WeightedRandomSampler(sample_weights, int(len(train_set)*1.5), replacement=True)
-train_dataloader = DataLoader(train_set, batch_size=BATCH_SIZE, shuffle = True, num_workers=8, drop_last=True, )
+sampler = WeightedRandomSampler(sample_weights, int(len(train_set)*1.5), replacement=True)
+train_dataloader = DataLoader(train_set, batch_size=BATCH_SIZE, num_workers=8, drop_last=True, sampler=sampler)
 test_dataloader = DataLoader(val_set, batch_size=BATCH_SIZE, shuffle=True, num_workers=8, drop_last=True)
 
 
