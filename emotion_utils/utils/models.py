@@ -86,6 +86,7 @@ class AudioSpectrogramModel(pl.LightningModule):
         self.log("val_auc", self.val_auc, on_step=False, on_epoch=True)
         self.log("val_f1", self.val_auc, on_step=False, on_epoch=True)
 
+
 class AudioLangModel(pl.LightningModule):
     def __init__(
         self,
@@ -162,6 +163,7 @@ class AudioLangModel(pl.LightningModule):
         self.log("val_loss", loss, on_step=False, on_epoch=True)
         self.log("val_auc", self.val_auc, on_step=False, on_epoch=True)
         self.log("val_f1", self.val_auc, on_step=False, on_epoch=True)
+
 
 class LangModel(pl.LightningModule):
     def __init__(

@@ -70,7 +70,7 @@ def main():
     )
     meta_df["category"] = meta_df["category"].str.replace(";.*", "", regex=True)
     model = get_model(args.model, )
-    dataset = AudioDataset(meta_df, data_path, modality="text")
+    dataset = AudioDataset(meta_df, data_path, modality=args.model)
 
     train_set, val_set = torch.utils.data.random_split(
         dataset,

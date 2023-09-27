@@ -65,7 +65,7 @@ class AudioDataset(
             for wav files. (e.g. /dataset/speech/*.wav)
     """
 
-    def __init__(self, meta_df, directory, modality="all", **kwargs):
+    def __init__(self, meta_df, directory, modality="multimodal", **kwargs):
         self.meta_df = meta_df
         self.directory = directory
         self.audio_path_list = glob.glob(directory)
