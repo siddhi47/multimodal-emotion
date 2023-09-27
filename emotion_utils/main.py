@@ -26,11 +26,11 @@ def get_model(model_name, **kwargs):
             }
     return model_dict[model_name](**kwargs)
 
-def get_sampler(dataset, sample_frac=1.0):
+def get_sampler(dataset, meta_df, sample_frac=1.0):
     weights = dict(
             zip(
                 range(len(dataset)),
-                dataset.df["category"].value_counts().sort_index().values
+                (1/meta_df["category"].value_counts()).values
                 )
             )
     sample_weights = [weights[item[-1]] for item in dataset]
@@ -70,7 +70,7 @@ def main():
         dataset,
         [0.8, 0.2],
     )
-    sampler = get_sampler(train_set, sample_frac=args.sample_frac)
+    sampler = get_sampler(train_set, meta_df, sample_frac=args.sample_frac)
 
     train_dataloader = DataLoader(
         train_set,
