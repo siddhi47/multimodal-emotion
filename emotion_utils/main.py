@@ -51,7 +51,7 @@ def main():
     args = ArgParser()
 
     config = configparser.ConfigParser()
-    config.read(args.config_path)
+    config.read(args.config)
 
     BATCH_SIZE = args.batch_size 
     MAX_EPOCH = args.max_epoch
