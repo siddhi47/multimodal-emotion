@@ -187,4 +187,13 @@ def ArgParser():
         default="emotion_utils/logs",
         help="log directory (default: emotion_utils/logs)",
     )
+
+    parser.add_argument(
+            "--sample_frac",
+            type=float,
+            default=1.0,
+            help="sample fraction for weighted sampler. (default: 1.0)",
+        )
+
+
     return parser.parse_args()
