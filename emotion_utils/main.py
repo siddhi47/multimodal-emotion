@@ -36,7 +36,7 @@ def get_sampler(dataset, sample_frac=1.0):
     sample_weights = [weights[item[-1]] for item in dataset]
     sampler = WeightedRandomSampler(
             sample_weights, 
-            int(len(sample_weights)*sample_frac)
+            int(len(sample_weights)*sample_frac),
             replacement=True
             )
     return sampler
