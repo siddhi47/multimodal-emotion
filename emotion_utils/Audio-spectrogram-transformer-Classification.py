@@ -56,8 +56,10 @@ meta_df['category'] = meta_df['category'].str.replace(';.*','', regex=True)
 class LighteningModel(pl.LightningModule):
     def __init__(self, input_size=48000, num_classes=10, hidden_size = 200, num_heads = 5, num_layers_tx  = 2):
         super(LighteningModel, self).__init__()
-        self.train_r2 = torchmetrics.R2Score()
-        self.val_r2 = torchmetrics.R2Score()
+        self.val_f1 = torchmetrics.classification.F1Score(task = 'multiclass', num_classes=num_classes)
+        self.train_f1 = torchmetrics.classification.F1Score(task = 'multiclass', num_classes=num_classes)
+        
+
         self.train_auc = torchmetrics.classification.AUROC(task = 'multiclass', num_classes=num_classes)
         self.val_auc = torchmetrics.classification.AUROC(task = 'multiclass', num_classes=num_classes)
         
@@ -91,8 +93,11 @@ class LighteningModel(pl.LightningModule):
         criterion = torch.nn.CrossEntropyLoss()
         loss = criterion(outputs, labels.long())
         self.train_auc(outputs, labels.int())
+        self.train_f1(outputs, labels.int())
+
         self.log('loss', loss, on_step=False, on_epoch=True)
         self.log('train_auc', self.train_auc, on_step=False, on_epoch=True)
+        self.log('train_f1', self.train_auc, on_step=False, on_epoch=True)
         
         
         return loss
@@ -107,10 +112,10 @@ class LighteningModel(pl.LightningModule):
         loss = criterion(outputs, labels.long())
         self.val_auc(outputs, labels.int())
         
+        self.val_f1(outputs, labels.int())
         self.log('val_loss', loss, on_step=False, on_epoch=True)
         self.log('val_auc', self.val_auc, on_step=False, on_epoch=True)
-
-
+        self.log('val_f1', self.val_auc, on_step=False, on_epoch=True)
 
 
 model = LighteningModel()

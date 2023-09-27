@@ -21,7 +21,7 @@
 # Each gpu node has two logical GPUs, so up to 2 can be requested per node
 # To request 2 GPUs use --gres=gpu:pascal:2
 #SBATCH --partition=gpu
-#SBATCH --gres=gpu:volta:1 
+#SBATCH --gres=gpu:ampere:1 
 
 #request 10 minutes of runtime - the job will be killed if it exceeds this
 #SBATCH --time=2000:00
@@ -39,12 +39,10 @@
 
 ### Commands to run your program start here ####################################
 
-pwd
-echo "Hello, World!"
-which python
 #module add python/3.9.12-gcc-8.5.0 cuda/11.8 neovim/0.8.0-gcc-8.5.0 apptainer
-nvidia-smi
 #jupyter nbconvert --execute --to notebook multimodal_29-lightening.ipynb
 #python multimodal-lightening-cough.py
 
-~/anaconda3/envs/jupyter_clone/bin/python run.py
+~/anaconda3/envs/jupyter_clone/bin/python  emotion_utils/Audio-spectrogram-transformer-Classification-bert.py
+~/anaconda3/envs/jupyter_clone/bin/python  emotion_utils/Audio-spectrogram-transformer-Classification.py
+~/anaconda3/envs/jupyter_clone/bin/python  emotion_utils/Classification-with-language-model.py

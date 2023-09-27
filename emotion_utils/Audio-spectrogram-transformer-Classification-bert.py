@@ -61,8 +61,6 @@ meta_df['category'] = meta_df['category'].str.replace(';.*','', regex=True)
 class LighteningModel(pl.LightningModule):
     def __init__(self, input_size=48000, num_classes=10, hidden_size = 200, num_heads = 5, num_layers_tx  = 2):
         super(LighteningModel, self).__init__()
-        self.train_r2 = torchmetrics.R2Score()
-        self.val_r2 = torchmetrics.R2Score()
         self.train_auc = torchmetrics.classification.AUROC(task = 'multiclass', num_classes=num_classes)
         self.val_auc = torchmetrics.classification.AUROC(task = 'multiclass', num_classes=num_classes)
         
