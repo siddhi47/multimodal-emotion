@@ -153,8 +153,9 @@ def ArgParser():
     parser.add_argument(
         "--model",
         type=str,
-        default="ast",
-        help="ast or ast2 (default: ast)",
+        default="audio",
+        help="audio, text or multimodal (default: audio)",
+        choices=["audio", "text", "multimodal"],
     )
     parser.add_argument(
         "--batch_size",

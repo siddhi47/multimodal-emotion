@@ -102,3 +102,5 @@ def main():
         test_dataloader,
     )
 
+if __name__ == "__main__":
+    main()
