@@ -4,35 +4,19 @@ warnings.filterwarnings("ignore")
 
 
 import torch
-import torchaudio
-import os
-import librosa
-from IPython.display import Audio
-import librosa
-from torchaudio.utils import download_asset
-import cv2
-import glob
 import pandas as pd
 
 
-from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
-import torch.nn.functional as F
-from torch import nn
 import torch
-import torch.optim as optim
 import lightning.pytorch as pl
 from torchaudio.transforms import *
 import numpy as np
-import torchmetrics
 from lightning.pytorch.loggers import CSVLogger
-from torch.nn.utils.rnn import pad_sequence
-import re
-from transformers import AutoFeatureExtractor, ASTForAudioClassification
 import configparser
 from torch.utils.data import DataLoader
 from emotion_utils.utils.utils import *
 from emotion_utils.utils.models import *
-
+from torch.utils.data import RandomWeightedSampler
 
 def get_model(model_name, **kwargs):
     model_dict = {
@@ -76,14 +60,17 @@ def main():
         dataset,
         [0.8, 0.2],
     )
-
+    sampler = RandomWeightedSampler(
+            weights=generate_sample_weights(meta_df),
+            num_samples=len(train_set)*1.5
+            )
     train_dataloader = DataLoader(
         train_set,
         batch_size=BATCH_SIZE,
         num_workers=args.num_workers,
         drop_last=True,
-        sampler=generate_sample_weights(meta_df),
-    )
+        sampler=sampler,
+        )
 
     test_dataloader = DataLoader(
         val_set, batch_size=BATCH_SIZE, shuffle=True, num_workers=args.num_workers, drop_last=True
