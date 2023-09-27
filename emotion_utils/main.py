@@ -16,7 +16,7 @@ import configparser
 from torch.utils.data import DataLoader
 from emotion_utils.utils.utils import *
 from emotion_utils.utils.models import *
-from torch.utils.data import RandomWeightedSampler
+from torch.utils.data import WeightedRandomSampler
 
 def get_model(model_name, **kwargs):
     model_dict = {
@@ -60,9 +60,9 @@ def main():
         dataset,
         [0.8, 0.2],
     )
-    sampler = RandomWeightedSampler(
+    sampler = WeightedRandomSampler(
             weights=generate_sample_weights(meta_df),
-            num_samples=len(train_set)*1.5
+            num_samples=int(len(train_set)*1.5)
             )
     train_dataloader = DataLoader(
         train_set,
