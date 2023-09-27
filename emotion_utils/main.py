@@ -54,7 +54,7 @@ def main():
     config.read(args.config)
 
     BATCH_SIZE = args.batch_size 
-    MAX_EPOCH = args.max_epoch
+    MAX_EPOCH = args.max_epochs
     llogger = CSVLogger("emotions", args.log_dir)
 
 
