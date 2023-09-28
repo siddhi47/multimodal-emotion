@@ -108,7 +108,7 @@ class AudioLangModel(pl.LightningModule):
         )
 
         self.sp_model = ASTForAudioClassification.from_pretrained(
-            "ast-finetuned-audioset-9-10-0.4593", return_dict=False
+            "ast-finetuned-audioset-10-10-0.4593", return_dict=False
         )
         for param in self.sp_model.parameters():
             param.requires_grad = False
