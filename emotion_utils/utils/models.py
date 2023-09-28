@@ -1,3 +1,8 @@
+"""
+    author:siddhi47
+    desc: Contains the model for the emotion recognition (using text, audio and both)
+"""
+
 import torch
 import torchmetrics
 from torch import nn
