@@ -43,6 +43,7 @@
 #jupyter nbconvert --execute --to notebook multimodal_29-lightening.ipynb
 #python multimodal-lightening-cough.py
 
-~/anaconda3/envs/jupyter_clone/bin/python  emotion_utils/Audio-spectrogram-transformer-Classification-bert.py
-~/anaconda3/envs/jupyter_clone/bin/python  emotion_utils/Audio-spectrogram-transformer-Classification.py
-~/anaconda3/envs/jupyter_clone/bin/python  emotion_utils/Classification-with-language-model.py
+~/anaconda3/envs/jupyter_clone/bin/python  emotion_utils/main.py --model multimodal --log_dir multimodal --sample_frac 1.5 --num_workers 10 --max_epoch 150 --batch_size 64
+~/anaconda3/envs/jupyter_clone/bin/python  emotion_utils/main.py --model text --log_dir text --sample_frac 1.5 --num_workers 10 --max_epoch 150 --batch_size 64
+~/anaconda3/envs/jupyter_clone/bin/python  emotion_utils/main.py --model audio --log_dir audio --sample_frac 1.5 --num_workers 10 --max_epoch 150 --batch_size 64
+
