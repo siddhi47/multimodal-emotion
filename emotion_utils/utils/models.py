@@ -93,13 +93,6 @@ class AudioLangModel(pl.LightningModule):
         num_classes=10,
     ):
         super(AudioLangModel, self).__init__()
-        self.val_f1 = torchmetrics.classification.F1Score(
-            task="multiclass", num_classes=num_classes
-        )
-        self.train_f1 = torchmetrics.classification.F1Score(
-            task="multiclass", num_classes=num_classes
-        )
-
         self.train_auc = torchmetrics.classification.AUROC(
             task="multiclass", num_classes=num_classes
         )
@@ -107,27 +100,53 @@ class AudioLangModel(pl.LightningModule):
             task="multiclass", num_classes=num_classes
         )
 
+        self.val_f1 = torchmetrics.classification.F1Score(
+            task="multiclass", num_classes=num_classes
+        )
+        self.train_f1 = torchmetrics.classification.F1Score(
+            task="multiclass", num_classes=num_classes
+        )
+
+        feature_extractor = AutoFeatureExtractor.from_pretrained(
+            "ast-finetuned-audioset-10-10-0.4593"
+        )
         self.sp_model = ASTForAudioClassification.from_pretrained(
             "ast-finetuned-audioset-10-10-0.4593", return_dict=False
         )
+
+        self.bert_model = BertModel.from_pretrained("bert-base-uncased")
+
         for param in self.sp_model.parameters():
             param.requires_grad = False
-        self.sp_model.classifier.dense = nn.Linear(768, 527)
+        self.sp_model.classifier.dense = nn.Linear(768, 256)
 
-        self.fc1 = nn.Linear(527, num_classes)
-        self.dropout = nn.Dropout(0.5)
+        for param in self.bert_model.parameters():
+            param.requires_grad = False
+
+        for param in self.bert_model.encoder.layer[-1:].parameters():
+            param.requires_grad = True
+
+        self.fc1 = nn.Linear(1024, num_classes)
+        self.dropout = nn.Dropout(0.7)
         self.relu = nn.ReLU()
 
-    def forward(
-        self,
-        x,
-    ):
+    def forward(self, x, y):
         x = x["input_values"].view(x["input_values"].size(0), 1024, 128)
+        input_bert = y["input_ids"].view(y["input_ids"].size(0), 50)
+        atten_bert = y["attention_mask"].view(y["attention_mask"].size(0), 50)
+        #         y = y['input_ids']
+        #         print(y.shape)
+        sp = self.sp_model(x, return_dict=False)[0]  # 256
+        bert, pool = self.bert_model(
+            input_ids=input_bert, attention_mask=atten_bert, return_dict=False
+        )
+        bert = self.dropout(pool)
+        sp = self.dropout(sp)
 
-        out = self.sp_model(x, return_dict=False)[0]  # 256
+        out = torch.concat([bert, sp], axis=1)
         out = self.dropout(out)
         out = self.fc1(out)
-        #         out = self.sigmoid(out)
+
         return out
 
     def configure_optimizers(self):
@@ -135,9 +154,10 @@ class AudioLangModel(pl.LightningModule):
         return optimizer
 
     def training_step(self, train_batch, batch_idx):
-        signal, labels = train_batch
+        signal, dial, labels = train_batch
+        #         signal = signal['input_values'].view(signal['input_values'].size(0), 1024,128).shape
         labels = labels.float().to("cuda:0")
-        outputs = self(signal).to("cuda:0")  # .argmax(1).float()
+        outputs = self(signal, dial).to("cuda:0")  # .argmax(1).float()
         criterion = torch.nn.CrossEntropyLoss()
         loss = criterion(outputs, labels.long())
         self.train_auc(outputs, labels.int())
@@ -145,24 +165,25 @@ class AudioLangModel(pl.LightningModule):
 
         self.log("loss", loss, on_step=False, on_epoch=True)
         self.log("train_auc", self.train_auc, on_step=False, on_epoch=True)
-        self.log("train_f1", self.train_auc, on_step=False, on_epoch=True)
+        self.log("train_f1", self.train_f1, on_step=False, on_epoch=True)
 
         return loss
 
     def validation_step(self, val_batch, batch_idx):
-        signal, labels = val_batch
+        signal, dial, labels = val_batch
         labels = labels.float().to("cuda:0")
         #         signal = signal['input_values'].view(signal['input_values'].size(0), 1024,128).shape
 
-        outputs = self(signal).to("cuda:0")  # .argmax(1).float()
+        outputs = self(signal, dial).to("cuda:0")  # .argmax(1).float()
         criterion = torch.nn.CrossEntropyLoss()
+
         loss = criterion(outputs, labels.long())
         self.val_auc(outputs, labels.int())
-
         self.val_f1(outputs, labels.int())
+
         self.log("val_loss", loss, on_step=False, on_epoch=True)
         self.log("val_auc", self.val_auc, on_step=False, on_epoch=True)
-        self.log("val_f1", self.val_auc, on_step=False, on_epoch=True)
+        self.log("val_f1", self.val_f1, on_step=False, on_epoch=True)
 
 
 class LangModel(pl.LightningModule):
@@ -218,8 +239,6 @@ class LangModel(pl.LightningModule):
         criterion = torch.nn.CrossEntropyLoss()
         loss = criterion(outputs, labels.long())
         self.train_auc(outputs, labels.int())
-        self.train_f1(outputs, labels.int())
-        self.log("loss", loss, on_step=False, on_epoch=True)
         self.log("train_auc", self.train_auc, on_step=False, on_epoch=True)
         self.log("train_f1", self.train_f1, on_step=False, on_epoch=True)
         return loss
@@ -234,6 +253,4 @@ class LangModel(pl.LightningModule):
         self.val_f1(outputs, labels.int())
         self.log("val_loss", loss, on_step=False, on_epoch=True)
         self.log("val_auc", self.val_auc, on_step=False, on_epoch=True)
-        self.log("val_f1", self.val_f1, on_step=False, on_epoch=True)
-
 
