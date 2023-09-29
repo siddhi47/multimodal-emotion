@@ -18,6 +18,7 @@ class AudioSpectrogramModel(pl.LightningModule):
     def __init__(
         self,
         num_classes=10,
+        **kwargs,
     ):
         super(AudioSpectrogramModel, self).__init__()
         self.val_f1 = torchmetrics.classification.F1Score(
@@ -42,7 +43,7 @@ class AudioSpectrogramModel(pl.LightningModule):
         self.sp_model.classifier.dense = nn.Linear(768, 527)
 
         self.fc1 = nn.Linear(527, num_classes)
-        self.dropout = nn.Dropout(0.5)
+        self.dropout = nn.Dropout(kwargs.get("dropout", 0.5))
         self.relu = nn.ReLU()
 
     def forward(
@@ -96,6 +97,7 @@ class AudioLangModel(pl.LightningModule):
     def __init__(
         self,
         num_classes=10,
+        **kwargs,
     ):
         super(AudioLangModel, self).__init__()
         self.train_auc = torchmetrics.classification.AUROC(
@@ -112,9 +114,6 @@ class AudioLangModel(pl.LightningModule):
             task="multiclass", num_classes=num_classes
         )
 
-        feature_extractor = AutoFeatureExtractor.from_pretrained(
-            "ast-finetuned-audioset-10-10-0.4593"
-        )
         self.sp_model = ASTForAudioClassification.from_pretrained(
             "ast-finetuned-audioset-10-10-0.4593", return_dict=False
         )
@@ -128,11 +127,11 @@ class AudioLangModel(pl.LightningModule):
         for param in self.bert_model.parameters():
             param.requires_grad = False
 
-        for param in self.bert_model.encoder.layer[-1:].parameters():
-            param.requires_grad = True
+        #for param in self.bert_model.encoder.layer[-1:].parameters():
+            #param.requires_grad = True
 
         self.fc1 = nn.Linear(1024, num_classes)
-        self.dropout = nn.Dropout(0.7)
+        self.dropout = nn.Dropout(kwargs.get("dropout", 0.5))
         self.relu = nn.ReLU()
 
     def forward(self, x, y):
@@ -195,6 +194,7 @@ class LangModel(pl.LightningModule):
     def __init__(
         self,
         num_classes=10,
+        **kwargs,
     ):
         super(LangModel, self).__init__()
         self.train_r2 = torchmetrics.R2Score()
@@ -219,7 +219,7 @@ class LangModel(pl.LightningModule):
             param.requires_grad = False
 
         self.fc1 = nn.Linear(768, num_classes)
-        self.dropout = nn.Dropout(0.7)
+        self.dropout = nn.Dropout(kwargs.get("dropout", 0.5))
         self.relu = nn.ReLU()
 
     def forward(self, y):
