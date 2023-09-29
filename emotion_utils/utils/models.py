@@ -60,9 +60,11 @@ class EmotionModel(pl.LightningModule):
 class AudioSpectrogramModel(EmotionModel):
     def __init__(
         self,
+        num_classes=10,
+        **kwargs,
     ):
         super(AudioSpectrogramModel, self).__init__()
-        
+        self.num_classes = num_classes
         self.sp_model = ASTForAudioClassification.from_pretrained(
             "ast-finetuned-audioset-10-10-0.4593", return_dict=False
         )
@@ -121,9 +123,11 @@ class AudioSpectrogramModel(EmotionModel):
 class AudioLangModel(EmotionModel):
     def __init__(
         self,
+        num_classes=10,
+        **kwargs,
     ):
         super(AudioLangModel, self).__init__()
-
+        self.num_classes = num_classes
         self.sp_model = ASTForAudioClassification.from_pretrained(
             "ast-finetuned-audioset-10-10-0.4593", return_dict=False
         )
@@ -199,10 +203,14 @@ class AudioLangModel(EmotionModel):
 class LangModel(EmotionModel):
     def __init__(
         self,
+        num_classes=10,
+        **kwargs,
+
     ):
         super(LangModel, self).__init__()
         self.bert_model = BertModel.from_pretrained("bert-base-uncased")
-
+        self.num_classes = num_classes
+        
         for param in self.bert_model.parameters():
             param.requires_grad = False
 
