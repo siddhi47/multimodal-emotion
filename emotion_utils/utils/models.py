@@ -14,13 +14,25 @@ from emotion_utils.utils.utils import *
 from transformers import  ASTForAudioClassification
 
 
-class AudioSpectrogramModel(pl.LightningModule):
-    def __init__(
-        self,
-        num_classes=10,
-        **kwargs,
-    ):
-        super(AudioSpectrogramModel, self).__init__()
+class EmotionModel(pl.LightningModule):
+    """
+        Class for the emotion recognition model.
+        This class is used as parent class
+    """
+
+    def __init__(self, num_classes = 10, **kwargs):
+        """
+            Initializes the model
+
+            Args:
+                num_classes (int): Number of classes to be predicted. Default: 10
+        """
+        super(EmotionModel, self).__init__()
+        self.num_classes = num_classes
+        self.kwargs = kwargs
+        self.dropout_rate = float(kwargs.get("dropout", 0.5))
+        self.lr = float(kwargs.get("lr", 1e-3))
+
         self.val_f1 = torchmetrics.classification.F1Score(
             task="multiclass", num_classes=num_classes
         )
@@ -35,15 +47,31 @@ class AudioSpectrogramModel(pl.LightningModule):
             task="multiclass", num_classes=num_classes
         )
 
+    def configure_optimizers(self):
+        """
+            Configures the optimizer to be used
+
+            returns:
+                optimizer (torch.optim.Optimizer): Optimizer to be used
+        """
+        optimizer = optim.Adam(self.parameters(), lr=self.lr)
+        return optimizer
+
+class AudioSpectrogramModel(EmotionModel):
+    def __init__(
+        self,
+    ):
+        super(AudioSpectrogramModel, self).__init__()
+        
         self.sp_model = ASTForAudioClassification.from_pretrained(
             "ast-finetuned-audioset-10-10-0.4593", return_dict=False
         )
         for param in self.sp_model.parameters():
-            param.requires_grad = False
+            param.requires_grad = Falseself.
         self.sp_model.classifier.dense = nn.Linear(768, 527)
 
-        self.fc1 = nn.Linear(527, num_classes)
-        self.dropout = nn.Dropout(kwargs.get("dropout", 0.5))
+        self.fc1 = nn.Linear(527, self.num_classes)
+        self.dropout = nn.Dropout(self.dropout_rate)
         self.relu = nn.ReLU()
 
     def forward(
@@ -58,9 +86,6 @@ class AudioSpectrogramModel(pl.LightningModule):
         #         out = self.sigmoid(out)
         return out
 
-    def configure_optimizers(self):
-        optimizer = optim.Adam(self.parameters(), lr=0.0001, weight_decay=1e-3)
-        return optimizer
 
     def training_step(self, train_batch, batch_idx):
         signal, labels = train_batch
@@ -93,32 +118,17 @@ class AudioSpectrogramModel(pl.LightningModule):
         self.log("val_f1", self.val_auc, on_step=False, on_epoch=True)
 
 
-class AudioLangModel(pl.LightningModule):
+class AudioLangModel(EmotionModel):
     def __init__(
         self,
-        num_classes=10,
-        **kwargs,
     ):
         super(AudioLangModel, self).__init__()
-        self.train_auc = torchmetrics.classification.AUROC(
-            task="multiclass", num_classes=num_classes
-        )
-        self.val_auc = torchmetrics.classification.AUROC(
-            task="multiclass", num_classes=num_classes
-        )
-
-        self.val_f1 = torchmetrics.classification.F1Score(
-            task="multiclass", num_classes=num_classes
-        )
-        self.train_f1 = torchmetrics.classification.F1Score(
-            task="multiclass", num_classes=num_classes
-        )
 
         self.sp_model = ASTForAudioClassification.from_pretrained(
             "ast-finetuned-audioset-10-10-0.4593", return_dict=False
         )
 
-        self.bert_model = BertModel.from_pretrained("bert-base-uncased")
+        self.bert_model = BertModel.froself.m_pretrained("bert-base-uncased")
 
         for param in self.sp_model.parameters():
             param.requires_grad = False
@@ -130,8 +140,8 @@ class AudioLangModel(pl.LightningModule):
         #for param in self.bert_model.encoder.layer[-1:].parameters():
             #param.requires_grad = True
 
-        self.fc1 = nn.Linear(1024, num_classes)
-        self.dropout = nn.Dropout(kwargs.get("dropout", 0.5))
+        self.fc1 = nn.Linear(1024, self.num_classes)
+        self.dropout = nn.Dropout(self.dropout_rate)
         self.relu = nn.ReLU()
 
     def forward(self, x, y):
@@ -152,10 +162,6 @@ class AudioLangModel(pl.LightningModule):
         out = self.fc1(out)
 
         return out
-
-    def configure_optimizers(self):
-        optimizer = optim.Adam(self.parameters(), lr=0.0001, weight_decay=1e-3)
-        return optimizer
 
     def training_step(self, train_batch, batch_idx):
         signal, dial, labels = train_batch
@@ -190,36 +196,18 @@ class AudioLangModel(pl.LightningModule):
         self.log("val_f1", self.val_f1, on_step=False, on_epoch=True)
 
 
-class LangModel(pl.LightningModule):
+class LangModel(EmotionModel):
     def __init__(
         self,
-        num_classes=10,
-        **kwargs,
     ):
         super(LangModel, self).__init__()
-        self.train_r2 = torchmetrics.R2Score()
-        self.val_r2 = torchmetrics.R2Score()
-        self.train_auc = torchmetrics.classification.AUROC(
-            task="multiclass", num_classes=num_classes
-        )
-        self.val_auc = torchmetrics.classification.AUROC(
-            task="multiclass", num_classes=num_classes
-        )
-
-        self.val_f1 = torchmetrics.classification.F1Score(
-            task="multiclass", num_classes=num_classes, average="macro"
-        )
-        self.train_f1 = torchmetrics.classification.F1Score(
-            task="multiclass", num_classes=num_classes, average="macro"
-        )
-
         self.bert_model = BertModel.from_pretrained("bert-base-uncased")
 
         for param in self.bert_model.parameters():
             param.requires_grad = False
 
-        self.fc1 = nn.Linear(768, num_classes)
-        self.dropout = nn.Dropout(kwargs.get("dropout", 0.5))
+        self.fc1 = nn.Linear(768, self.num_classes)
+        self.dropout = nn.Dropout(self.dropout_rate)
         self.relu = nn.ReLU()
 
     def forward(self, y):
@@ -233,9 +221,6 @@ class LangModel(pl.LightningModule):
 
         return out
 
-    def configure_optimizers(self):
-        optimizer = optim.Adam(self.parameters(), lr=0.0001, weight_decay=1e-3)
-        return optimizer
 
     def training_step(self, train_batch, batch_idx):
         dial, labels = train_batch
