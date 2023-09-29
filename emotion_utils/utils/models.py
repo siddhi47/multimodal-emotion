@@ -132,8 +132,7 @@ class AudioLangModel(EmotionModel):
             "ast-finetuned-audioset-10-10-0.4593", return_dict=False
         )
 
-        self.bert_model = BertModel.froself.m_pretrained("bert-base-uncased")
-
+        self.bert_model = BertModel.from_pretrained("bert-base-uncased")
         for param in self.sp_model.parameters():
             param.requires_grad = False
         self.sp_model.classifier.dense = nn.Linear(768, 256)
