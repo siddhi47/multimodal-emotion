@@ -67,7 +67,7 @@ class AudioSpectrogramModel(EmotionModel):
             "ast-finetuned-audioset-10-10-0.4593", return_dict=False
         )
         for param in self.sp_model.parameters():
-            param.requires_grad = Falseself.
+            param.requires_grad = False
         self.sp_model.classifier.dense = nn.Linear(768, 527)
 
         self.fc1 = nn.Linear(527, self.num_classes)
