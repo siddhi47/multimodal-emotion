@@ -8,24 +8,24 @@ import torchmetrics
 from torch import nn
 import torch.optim as optim
 import lightning.pytorch as pl
-from transformers import  BertModel
+from transformers import BertModel
 from torchaudio.transforms import *
 from emotion_utils.utils.utils import *
-from transformers import  ASTForAudioClassification
+from transformers import ASTForAudioClassification
 
 
 class EmotionModel(pl.LightningModule):
     """
-        Class for the emotion recognition model.
-        This class is used as parent class
+    Class for the emotion recognition model.
+    This class is used as parent class
     """
 
-    def __init__(self, num_classes = 10, **kwargs):
+    def __init__(self, num_classes=10, **kwargs):
         """
-            Initializes the model
+        Initializes the model
 
-            Args:
-                num_classes (int): Number of classes to be predicted. Default: 10
+        Args:
+            num_classes (int): Number of classes to be predicted. Default: 10
         """
         super(EmotionModel, self).__init__()
         self.num_classes = num_classes
@@ -49,13 +49,14 @@ class EmotionModel(pl.LightningModule):
 
     def configure_optimizers(self):
         """
-            Configures the optimizer to be used
+        Configures the optimizer to be used
 
-            returns:
-                optimizer (torch.optim.Optimizer): Optimizer to be used
+        returns:
+            optimizer (torch.optim.Optimizer): Optimizer to be used
         """
         optimizer = optim.Adam(self.parameters(), lr=self.lr)
         return optimizer
+
 
 class AudioSpectrogramModel(EmotionModel):
     def __init__(
@@ -87,7 +88,6 @@ class AudioSpectrogramModel(EmotionModel):
         out = self.fc1(out)
         #         out = self.sigmoid(out)
         return out
-
 
     def training_step(self, train_batch, batch_idx):
         signal, labels = train_batch
@@ -140,8 +140,8 @@ class AudioLangModel(EmotionModel):
         for param in self.bert_model.parameters():
             param.requires_grad = False
 
-        #for param in self.bert_model.encoder.layer[-1:].parameters():
-            #param.requires_grad = True
+        # for param in self.bert_model.encoder.layer[-1:].parameters():
+        # param.requires_grad = True
 
         self.fc1 = nn.Linear(1024, self.num_classes)
         self.dropout = nn.Dropout(self.dropout_rate)
@@ -204,12 +204,11 @@ class LangModel(EmotionModel):
         self,
         num_classes=10,
         **kwargs,
-
     ):
         super(LangModel, self).__init__()
         self.bert_model = BertModel.from_pretrained("bert-base-uncased")
         self.num_classes = num_classes
-        
+
         for param in self.bert_model.parameters():
             param.requires_grad = False
 
@@ -227,7 +226,6 @@ class LangModel(EmotionModel):
         out = self.fc1(bert)
 
         return out
-
 
     def training_step(self, train_batch, batch_idx):
         dial, labels = train_batch
@@ -250,4 +248,3 @@ class LangModel(EmotionModel):
         self.val_f1(outputs, labels.int())
         self.log("val_loss", loss, on_step=False, on_epoch=True)
         self.log("val_auc", self.val_auc, on_step=False, on_epoch=True)
-

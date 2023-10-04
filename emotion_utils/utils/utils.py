@@ -11,7 +11,7 @@ import torchaudio
 import pandas as pd
 from torch.utils.data import Dataset
 from transformers import BertTokenizer
-from transformers import AutoFeatureExtractor 
+from transformers import AutoFeatureExtractor
 
 
 def get_name_category_from_path(path):
@@ -136,6 +136,7 @@ class AudioDataset(
             )
             return audio_feature, encoded_text, self.t_dict[targets]
 
+
 def ArgParser():
     parser = argparse.ArgumentParser(description="Emotion Recognition")
     parser.add_argument(
@@ -189,11 +190,10 @@ def ArgParser():
     )
 
     parser.add_argument(
-            "--sample_frac",
-            type=float,
-            default=1.0,
-            help="sample fraction for weighted sampler. (default: 1.0)",
-        )
-
+        "--sample_frac",
+        type=float,
+        default=1.0,
+        help="sample fraction for weighted sampler. (default: 1.0)",
+    )
 
     return parser.parse_args()
