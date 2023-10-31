@@ -13,7 +13,6 @@ from torchaudio.transforms import *
 from emotion_utils.utils.utils import *
 from transformers import ASTForAudioClassification
 
-
 class EmotionModel(pl.LightningModule):
     """
     Class for the emotion recognition model.
@@ -251,3 +250,45 @@ class LangModel(EmotionModel):
         self.val_f1(outputs, labels.int())
         self.log("val_loss", loss, on_step=False, on_epoch=True)
         self.log("val_auc", self.val_auc, on_step=False, on_epoch=True)
+
+class FaceModel(EmotionModel):
+    def __init__(
+            self,
+            num_classes = 10, 
+            embedding_dim = 256,
+            **kwargs
+            ):
+        super(FaceModel, self).__init__()
+        self.num_classes = num_classes
+        self.embs = nn.Embedding(embedding_dim, 128)
+        self.transformer_encoder = nn.TransformerEncoder(
+            nn.TransformerEncoderLayer(d_model=128, nhead=16), num_layers=6)
+    
+    def forward(self,x):
+        out = self.transformer_encoder(x)
+        out = out.mean(1)
+        out = self.fc1(out)
+        return out
+
+    def training_step(self, train_batch, batch_idx):
+        dial, labels = train_batch
+        labels = labels.float().to("cuda:0")
+        outputs = self(dial).to("cuda:0")  # .argmax(1).float()
+        criterion = torch.nn.CrossEntropyLoss()
+        loss = criterion(outputs, labels.long())
+        self.train_auc(outputs, labels.int())
+        self.log("train_auc", self.train_auc, on_step=False, on_epoch=True)
+        self.log("train_f1", self.train_f1, on_step=False, on_epoch=True)
+        return loss
+
+    def validation_step(self, val_batch, batch_idx):
+        dial, labels = val_batch
+        labels = labels.float().to("cuda:0")
+        outputs = self(dial).to("cuda:0")  # .argmax(1).float()
+        criterion = torch.nn.CrossEntropyLoss()
+        loss = criterion(outputs, labels.long())
+        self.val_auc(outputs, labels.int())
+        self.val_f1(outputs, labels.int())
+        self.log("val_loss", loss, on_step=False, on_epoch=True)
+        self.log("val_auc", self.val_auc, on_step=False, on_epoch=True)
+

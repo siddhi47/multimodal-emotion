@@ -12,7 +12,7 @@ import pandas as pd
 from torch.utils.data import Dataset
 from transformers import BertTokenizer
 from transformers import AutoFeatureExtractor
-
+from speechbrain.pretrained import SepformerSeparation as separator
 
 def get_name_category_from_path(path):
     file_name_list = []
@@ -39,6 +39,14 @@ def get_name_dial_from_path(path):
                 continue
     return file_name_list, dial_list
 
+def get_name_mocap_path_from_path(path):
+    file_name_list = []
+    mocap_list = []
+    for file in glob.glob(path):
+        file_name_list.append(os.path.basename(file).split(".")[0])
+        mocap_list.append(file)
+
+    return file_name_list, mocap_list
 
 def get_meta(path_regex, label="category"):
     dial_category = {
@@ -53,6 +61,10 @@ def get_meta(path_regex, label="category"):
         label_list.extend(e)
     return pd.DataFrame({"file": file_list, label: label_list})
 
+def add_mocap(df, path):
+    file_name_list, mocap_list = get_name_mocap_path_from_path(path)
+    df["mocap"] = df["file"].apply(lambda x: mocap_list[file_name_list.index(x)])
+    return df
 
 class AudioDataset(
     Dataset,
@@ -77,17 +89,32 @@ class AudioDataset(
     def __len__(self):
         return len(self.meta_df)
 
+    def save_clean_audio(self, audio_path, clean_audio_path):
+        separator.separate_file(
+            audio_path,
+            savedir=os.path.dirname(audio_path),
+            saved_filename=os.path.basename(audio_path).split(".")[0],
+        )
+        os.rename(audio_path, clean_audio_path)
+
     def __getitem__(self, idx):
         audio_path = self.audio_path_list[idx]
+        clean_audio_path = os.path.dirname(audio_path) + "/clean/" + os.path.basename(audio_path)
         audio_name = os.path.basename(audio_path).split(".")[0]
         targets = self.meta_df.loc[idx, ["category"]].values[0]
         audio_feature = None
         encoded_text = None
         if self.modality == "audio":
+            
+            #if os.path.exists(clean_audio_path):
+                #audio_path = clean_audio_path
+            #else:
+                #self.save_clean_audio(audio_path, clean_audio_path)
+
             signal, sr = torchaudio.load(
                 audio_path,
             )
-            signal = signal[0]
+            #signal = signal[0]
             feature_extractor = AutoFeatureExtractor.from_pretrained(
                 "ast-finetuned-audioset-10-10-0.4593"
             )
@@ -110,7 +137,7 @@ class AudioDataset(
                 truncation=True,
             )
             return encoded_text, self.t_dict[targets]
-
+            
         else:
             dialogue = self.meta_df.loc[idx, ["dial"]].values[0]
 
