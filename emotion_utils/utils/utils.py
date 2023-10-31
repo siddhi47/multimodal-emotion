@@ -183,7 +183,7 @@ def ArgParser():
         type=str,
         default="audio",
         help="audio, text or multimodal (default: audio)",
-        choices=["audio", "text", "multimodal"],
+        choices=["audio", "text", "multimodal",'face'],
     )
     parser.add_argument(
         "--batch_size",
