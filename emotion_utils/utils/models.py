@@ -145,6 +145,7 @@ class AudioLangModel(EmotionModel):
         self.fc1 = nn.Linear(1024, 256)
         self.fc2 = nn.Linear(256, self.num_classes)
         self.dropout = nn.Dropout(self.dropout_rate)
+        self.dropout_bert = nn.Dropout(min(0.9,self.dropout_rate*1.2))
         self.relu = nn.ReLU()
 
     def forward(self, x, y):
@@ -157,7 +158,7 @@ class AudioLangModel(EmotionModel):
         bert, pool = self.bert_model(
             input_ids=input_bert, attention_mask=atten_bert, return_dict=False
         )
-        bert = self.dropout(pool)
+        bert = self.dropout_bert(pool)
         sp = self.dropout(sp)
 
         out = torch.concat([bert, sp], axis=1)
