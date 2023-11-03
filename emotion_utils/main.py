@@ -95,7 +95,6 @@ def main():
     model = get_model(
         args.model, num_classes=len(meta_df["category"].unique()), **config["model"]
     )
-    meta_df = add_mocap(meta_df, config["data"]["mocap"])
     dataset = AudioDataset(meta_df, data_path, modality=args.model)
 
     train_set, val_set = torch.utils.data.random_split(
