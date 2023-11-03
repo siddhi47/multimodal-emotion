@@ -143,9 +143,11 @@ class AudioLangModel(EmotionModel):
             param.requires_grad = True
 
         self.fc1 = nn.Linear(1024, 256)
-        self.fc2 = nn.Linear(256, self.num_classes)
+        self.mid_fc = nn.Linear(256, 128)
+        self.fc2 = nn.Linear(128, self.num_classes)
         self.dropout = nn.Dropout(self.dropout_rate)
         self.dropout_bert = nn.Dropout(min(0.9,self.dropout_rate*1.2))
+        self.d
         self.relu = nn.ReLU()
 
     def forward(self, x, y):
