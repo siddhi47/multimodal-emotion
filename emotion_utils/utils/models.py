@@ -141,13 +141,14 @@ class AudioLangModel(EmotionModel):
 
         for param in self.bert_model.encoder.layer[-1:].parameters():
             param.requires_grad = True
+        
+        self.sp_fc = nn.Linear(256, 128)
+        self.bert_fc = nn.Linear(768, 128)
 
-        self.fc1 = nn.Linear(1024, 256)
-        self.mid_fc = nn.Linear(256, 128)
+        self.fc1 = nn.Linear(256, 128)
         self.fc2 = nn.Linear(128, self.num_classes)
         self.dropout = nn.Dropout(self.dropout_rate)
         self.dropout_bert = nn.Dropout(min(0.9,self.dropout_rate*1.2))
-        self.d
         self.relu = nn.ReLU()
 
     def forward(self, x, y):
@@ -161,7 +162,12 @@ class AudioLangModel(EmotionModel):
             input_ids=input_bert, attention_mask=atten_bert, return_dict=False
         )
         bert = self.dropout_bert(pool)
-        sp = self.dropout(sp)
+
+        sp = self.dropout(self.sp_fc(sp))
+        bert = self.dropout(self.bert_fc(bert))
+        
+        sp = self.relu(sp)
+        bert = self.relu(bert)
 
         out = torch.concat([bert, sp], axis=1)
         out = self.dropout(out)
