@@ -18,9 +18,10 @@ from torch.utils.data import DataLoader
 from emotion_utils.utils.utils import *
 from emotion_utils.utils.models import *
 from torch.utils.data import WeightedRandomSampler
+from lightning.pytorch.callbacks import ModelCheckpoint
+torch.set_float32_matmul_precision('medium' )
 
-
-def get_model(model_name, **kwargs):
+def get_model(model_name,from_checkpoint = None,  **kwargs):
     """
     Returns the model from model name
 
@@ -32,6 +33,7 @@ def get_model(model_name, **kwargs):
     """
     model_dict = {
         "audio": AudioSpectrogramModel,
+        "audio1": AudioSpectrogramModel1,
         "text": LangModel,
         "multimodal": AudioLangModel,
         "face": FaceModel,
@@ -40,7 +42,8 @@ def get_model(model_name, **kwargs):
         raise ValueError(
             f"Model {model_name} not present in the model dictionary. Choose from {model_dict.keys()}"
         )
-
+    if from_checkpoint:
+        return model_dict[model_name].load_from_checkpoint(from_checkpoint)
     return model_dict[model_name](**kwargs)
 
 
@@ -92,37 +95,59 @@ def main():
     )
     meta_df["category"] = meta_df["category"].str.replace(";.*", "", regex=True)
     
+    labels = [
+            'happiness', 
+            'sadness', 
+            'neutral state', 
+            'anger',  
+            'frustration', 
+            # 'fear'
+            ]
+    meta_df = meta_df[meta_df['category'].isin(labels)]
+    meta_df['category'] =  meta_df["category"].map(dict(zip(labels,range(len(labels)))))
+    meta_df.reset_index(drop = True, inplace = True)
+
+    meta_df.to_csv('meta.csv', index = False)
+    meta_df = pd.read_csv('sampled.csv')
+    checkpoint_file = None
+    if args.resume_from_checkpoint:
+        checkpoint_path = os.path.join('emotions', args.log_dir, f"version_{args.resume_from_checkpoint}", 'checkpoints')
+        checkpoint_file = os.path.join(checkpoint_path, os.listdir(checkpoint_path)[0])
     model = get_model(
-        args.model, num_classes=len(meta_df["category"].unique()), **config["model"]
+        args.model, num_classes=len(meta_df["category"].unique()), from_checkpoint = checkpoint_file, **config["model"]
     )
     dataset = AudioDataset(meta_df, data_path, modality=args.model)
-
     train_set, val_set = torch.utils.data.random_split(
         dataset,
         [0.8, 0.2],
     )
-    sampler = get_sampler(train_set, meta_df, sample_frac=args.sample_frac)
+    #sampler = get_sampler(train_set, meta_df, sample_frac=args.sample_frac)
+
 
     train_dataloader = DataLoader(
         train_set,
         batch_size=BATCH_SIZE,
         num_workers=args.num_workers,
         drop_last=True,
-        sampler=sampler,
+        #shuffle=True,
+        #sampler=sampler,
     )
+    checkpoint_callback = ModelCheckpoint(monitor="val_f1")
 
     test_dataloader = DataLoader(
         val_set,
         batch_size=BATCH_SIZE,
         shuffle=True,
+        #sampler = test_sampler,
         num_workers=args.num_workers,
         drop_last=True,
     )
-
+    
     trainer = pl.Trainer(
         max_epochs=MAX_EPOCH,
-        gradient_clip_val=0,
+        #gradient_clip_val=1,
         logger=llogger,
+        callbacks = [checkpoint_callback]
     )
 
     trainer.fit(

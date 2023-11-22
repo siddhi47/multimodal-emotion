@@ -11,7 +11,7 @@ import torchaudio
 import pandas as pd
 from torch.utils.data import Dataset
 from transformers import BertTokenizer
-from transformers import AutoFeatureExtractor
+from transformers import AutoFeatureExtractor, ASTFeatureExtractor
 from speechbrain.pretrained import SepformerSeparation as separator
 
 def get_name_category_from_path(path):
@@ -84,10 +84,29 @@ class AudioDataset(
         category = self.meta_df["category"].unique()
         self.t_dict = dict(zip(category, range(len(category))))
         self.kwargs = kwargs
+        self.tokenizer = BertTokenizer.from_pretrained("bert-base-uncased")
         self.modality = modality
+        #self.audio_feature_extractor = AutoFeatureExtractor.from_pretrained(
+        #        "ast-finetuned-audioset-10-10-0.4593", #return_tensors = 'pt',
+        #        max_length = 1024
+        #    )
+        self.audio_feature_extractor = ASTFeatureExtractor.from_pretrained(
+                "ast-finetuned-audioset-10-10-0.4593", #return_tensors = 'pt',
+                max_length = 1024,
+                return_attention_mask = True
+
+            )
 
     def __len__(self):
         return len(self.meta_df)
+
+    def resample_audio(self,audio,sr, target_length = 5):
+        audio_length_seconds = audio.shape[1]/sr
+        if audio_length_seconds<target_length:
+            multiply_num = round(target_length/audio_length_seconds)
+
+            audio = torch.concat(multiply_num*[audio],dim = 1)
+        return audio
 
     def save_clean_audio(self, audio_path, clean_audio_path):
         separator.separate_file(
@@ -104,7 +123,7 @@ class AudioDataset(
         targets = self.meta_df.loc[idx, ["category"]].values[0]
         audio_feature = None
         encoded_text = None
-        if self.modality == "audio":
+        if self.modality in [ "audio", "audio1"]:
             
             #if os.path.exists(clean_audio_path):
                 #audio_path = clean_audio_path
@@ -114,21 +133,21 @@ class AudioDataset(
             signal, sr = torchaudio.load(
                 audio_path,
             )
-            #signal = signal[0]
-            feature_extractor = AutoFeatureExtractor.from_pretrained(
-                "ast-finetuned-audioset-10-10-0.4593"
-            )
-            audio_feature = feature_extractor(
+            #signal = self.resample_audio(signal[0], sr)
+            signal = signal[0]
+
+
+            audio_feature = self.audio_feature_extractor(
                 signal, sampling_rate=sr, return_tensors="pt"
             )
+        
 
             return audio_feature, self.t_dict[targets]
 
         elif self.modality == "text":
             dialogue = self.meta_df.loc[idx, ["dial"]].values[0]
 
-            tokenizer = BertTokenizer.from_pretrained("bert-base-uncased")
-            encoded_text = tokenizer(
+            encoded_text = self.tokenizer(
                 dialogue,
                 return_tensors="pt",
                 padding="max_length",
@@ -145,15 +164,12 @@ class AudioDataset(
                 audio_path,
             )
             signal = signal[0]
-            feature_extractor = AutoFeatureExtractor.from_pretrained(
-                "ast-finetuned-audioset-10-10-0.4593"
-            )
+            
 
-            audio_feature = feature_extractor(
+            audio_feature = self.audio_feature_extractor(
                 signal, sampling_rate=sr, return_tensors="pt"
             )
-            tokenizer = BertTokenizer.from_pretrained("bert-base-uncased")
-            encoded_text = tokenizer(
+            encoded_text = self.tokenizer(
                 dialogue,
                 return_tensors="pt",
                 padding="max_length",
@@ -183,7 +199,7 @@ def ArgParser():
         type=str,
         default="audio",
         help="audio, text or multimodal (default: audio)",
-        choices=["audio", "text", "multimodal",'face'],
+        choices=["audio", "text", "multimodal",'face', 'audio1'],
     )
     parser.add_argument(
         "--batch_size",
@@ -222,5 +238,10 @@ def ArgParser():
         default=1.0,
         help="sample fraction for weighted sampler. (default: 1.0)",
     )
-
+    parser.add_argument(
+        "--resume_from_checkpoint",
+        type=int,
+        default=None,
+        help="From which version to resume training.",
+    )
     return parser.parse_args()

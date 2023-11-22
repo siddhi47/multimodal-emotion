@@ -362,6 +362,7 @@ class AudioSpectrogramModel1(EmotionModel):
             x,
             ):
 
+        #breakpoint() 
 
         x = x["input_values"]#.view(x["input_values"].size(0), 1024, 128)
         #x = torch.concat([x,x], dim = 1)
