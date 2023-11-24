@@ -12,7 +12,11 @@ python emotion_utils\main.py --help
 ```
 
 # SLURM job
-Use the slurm job (lightning_job.sh) as a template to run on HPC. You can also check the usage of code in the slurm job file.
+Use the slurm job (lightning_job.sh) as a template to run on HPC. You can also check the usage of code in the slurm job file. The slurm job can be run using the following command:
+
+```bash
+sbatch lightning_job.sh
+```
 
 
 The dataset is accessible here:https://sail.usc.edu/iemocap/.
