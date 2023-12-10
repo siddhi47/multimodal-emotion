@@ -60,7 +60,7 @@ class EmotionModel(pl.LightningModule):
 class AudioSpectrogramModel(EmotionModel):
     def __init__(
             self,
-            num_classes=6,
+            num_classes=5,
             **kwargs,
             ):
         super(AudioSpectrogramModel, self).__init__()
@@ -94,7 +94,6 @@ class AudioSpectrogramModel(EmotionModel):
         out = self.normalize(out)
         #out = self.dropout(out)
         out = self.fc1(out)
-        print(out)
 
         return out
 
@@ -103,8 +102,6 @@ class AudioSpectrogramModel(EmotionModel):
         labels = labels.float().to("cuda:0")
         outputs = self(signal).to("cuda:0").softmax(dim = -1)  # .argmax(1).float()
         #outputs = outputs.logit().argmax(dim = 1)
-        print(outputs.argmax(1))
-        print(labels.long())
         criterion = torch.nn.CrossEntropyLoss()
         loss = criterion(outputs, labels.long())
         self.train_auc(outputs, labels.int())
@@ -126,8 +123,6 @@ class AudioSpectrogramModel(EmotionModel):
         criterion = torch.nn.CrossEntropyLoss()
         loss = criterion(outputs, labels.long())
         self.val_auc(outputs, labels.int())
-        print(outputs.argmax(1))
-        print(labels.long())
 
         self.val_f1(outputs, labels.int())
         self.log("val_loss", loss, on_step=False, on_epoch=True)
@@ -162,7 +157,7 @@ class AudioLangModel(EmotionModel):
         self.sp_fc = nn.Linear(256, 128)
         self.normalize_sp = nn.LayerNorm(256)
         self.normalize_sp_fc = nn.LayerNorm(128)
-        self.normalize_bert = nn.LayerNorm(768)
+        self.normalize_bert = nn.LayerNorm(128)
         self.bert_fc = nn.Linear(768, 128)
         self.fc1 = nn.Linear(256, self.num_classes)
         #self.fc2 = nn.Linear(128, self.num_classes)
@@ -174,41 +169,29 @@ class AudioLangModel(EmotionModel):
         
         input_bert = y["input_ids"].view(y["input_ids"].size(0), 50 )
         atten_bert = y["attention_mask"].view(y["attention_mask"].size(0),50)
-        #         y = y['input_ids']
-        #         print(y.shape)
 
         x = x["input_values"].view(x["input_values"].size(0), 1024, 128)
-        #x = torch.concat([x,x], dim = 1)
         rounded_tensor = torch.round(x * 10 ** 4) / (10 ** 4)
         attention_mask_sp = torch.ne(rounded_tensor, 0.4670).float()
         sp = self.sp_model(x,  return_dict=False)[0]  # 256
-        #sp = self.relu(sp)
         sp = self.normalize_sp(sp)
         sp = self.normalize_sp_fc(self.relu(self.sp_fc(sp)))
 
         bert, pool = self.bert_model(
                 input_ids=input_bert, attention_mask=atten_bert, return_dict=False
                 )
-        bert = self.dropout_bert(pool)
-        bert = self.bert_fc(bert)
+        bert = self.bert_fc(pool)
         bert = self.relu(bert)
-
+        bert = self.normalize_bert(bert)
         out = torch.concat([bert, sp], axis=1)
 
-        out = self.dropout(out)
-        # out = self.relu(out)
-        #out = self.relu(self.dropout(self.fc1(out)))
         out = self.fc1(out)
-        #out = self.fc2(out)
         return out
 
     def training_step(self, train_batch, batch_idx):
         signal, dial, labels = train_batch
-        #         signal = signal['input_values'].view(signal['input_values'].size(0), 1024,128).shape
         labels = labels.float().to("cuda:0")
         outputs = self(signal, dial).to("cuda:0")#.softmax(dim=-1)  # .argmax(1).float()
-        print(outputs.argmax(1))
-        print(labels.long())
         criterion = torch.nn.CrossEntropyLoss()
         loss = criterion(outputs, labels.long())
         self.train_auc(outputs, labels.int())
@@ -228,8 +211,6 @@ class AudioLangModel(EmotionModel):
         outputs = self(signal, dial).to("cuda:0")#.softmax(dim = -1)  # .argmax(1).float()
         criterion = torch.nn.CrossEntropyLoss()
 
-        print(outputs.argmax(1))
-        print(labels.long())
         loss = criterion(outputs, labels.long())
         self.val_auc(outputs, labels.int())
         self.val_f1(outputs, labels.int())
@@ -242,7 +223,7 @@ class AudioLangModel(EmotionModel):
 class LangModel(EmotionModel):
     def __init__(
             self,
-            num_classes=6,
+            num_classes=5,
         **kwargs,
     ):
         super(LangModel, self).__init__()
@@ -381,7 +362,6 @@ class AudioSpectrogramModel1(EmotionModel):
         out = self.norm(out)
 
         out = self.fc2(out)
-        print(out)
         
         return out
 
@@ -416,5 +396,76 @@ class AudioSpectrogramModel1(EmotionModel):
         self.log("val_loss", loss, on_step=False, on_epoch=True)
         self.log("val_auc", self.val_auc, on_step=False, on_epoch=True)
         self.log("val_f1", self.val_auc, on_step=False, on_epoch=True)
+
+class AudioLangModelPre(EmotionModel):
+    def __init__(
+            self,
+            num_classes=5,
+            **kwargs,
+            ):
+        super(AudioLangModelPre, self).__init__()
+        self.num_classes = num_classes
+        self.sp_model = AudioSpectrogramModel()        
+        self.sp_model.load_from_checkpoint("/home/usd.local/siddhi.bajracharya/jupyter/emotions/emotions/audio/version_6/checkpoints/epoch=0-step=277.ckpt")
+        self.bert_model = LangModel()
+        self.bert_model.load_from_checkpoint("/home/usd.local/siddhi.bajracharya/jupyter/emotions/emotions/text/version_3/checkpoints/epoch=1-step=554.ckpt")
+
+        for param in self.sp_model.parameters():
+            param.requires_grad = False
+        self.sp_model.fc1= nn.Linear(512, 128)
+
+        for param in self.bert_model.parameters():
+            param.requires_grad = False
+
+        for param in self.bert_model.parameters():
+            param.requires_grad = False
+        self.bert_model.fc1= nn.Linear(768, 128)
+
+
+
+
+        self.fc1 = nn.Linear(256, self.num_classes)
+        self.dropout = nn.Dropout(self.dropout_rate)
+        self.dropout_bert = nn.Dropout(min(0.9,self.dropout_rate*1.2))
+        self.relu = nn.LeakyReLU()
+
+    def forward(self, x, y):
+        sp = self.sp_model(x,  )#[0]  # 256
+        bert = self.bert_model(y)
+        out = torch.concat([bert, sp], axis=1)
+        out = self.fc1(out)
+        return out
+
+    def training_step(self, train_batch, batch_idx):
+        signal, dial, labels = train_batch
+        #         signal = signal['input_values'].view(signal['input_values'].size(0), 1024,128).shape
+        labels = labels.float().to("cuda:0")
+        outputs = self(signal, dial).to("cuda:0")#.softmax(dim=-1)  # .argmax(1).float()
+        criterion = torch.nn.CrossEntropyLoss()
+        loss = criterion(outputs, labels.long())
+        self.train_auc(outputs, labels.int())
+        self.train_f1(outputs, labels.int())
+
+        self.log("loss", loss, on_step=False, on_epoch=True)
+        self.log("train_auc", self.train_auc, on_step=False, on_epoch=True)
+        self.log("train_f1", self.train_f1, on_step=False, on_epoch=True)
+
+        return loss
+
+    def validation_step(self, val_batch, batch_idx):
+        signal, dial, labels = val_batch
+        labels = labels.float().to("cuda:0")
+        #         signal = signal['input_values'].view(signal['input_values'].size(0), 1024,128).shape
+
+        outputs = self(signal, dial).to("cuda:0")#.softmax(dim = -1)  # .argmax(1).float()
+        criterion = torch.nn.CrossEntropyLoss()
+
+        loss = criterion(outputs, labels.long())
+        self.val_auc(outputs, labels.int())
+        self.val_f1(outputs, labels.int())
+
+        self.log("val_loss", loss, on_step=False, on_epoch=True)
+        self.log("val_auc", self.val_auc, on_step=False, on_epoch=True)
+        self.log("val_f1", self.val_f1, on_step=False, on_epoch=True)
 
 

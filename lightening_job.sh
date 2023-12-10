@@ -43,8 +43,8 @@
 #jupyter nbconvert --execute --to notebook multimodal_29-lightening.ipynb
 #python multimodal-lightening-cough.py
 
-~/anaconda3/envs/jupyter_clone/bin/python  emotion_utils/main.py --model text --log_dir text --num_workers 10 --max_epoch 200 --batch_size 16
-~/anaconda3/envs/jupyter_clone/bin/python  emotion_utils/main.py --model multimodal --log_dir multimodal  --num_workers 10 --max_epoch 200 --batch_size 16 
-~/anaconda3/envs/jupyter_clone/bin/python  emotion_utils/main.py --model audio --log_dir audio  --num_workers 10 --max_epoch 200 --batch_size 16
-~/anaconda3/envs/jupyter_clone/bin/python  emotion_utils/main.py --model audio1 --log_dir audio_cnn --num_workers 10 --max_epoch 200 --batch_size 16
+#~/anaconda3/envs/jupyter_clone/bin/python  emotion_utils/main.py --model text --log_dir text --num_workers 10 --max_epoch 200 --batch_size 16
+~/anaconda3/envs/jupyter_clone/bin/python  emotion_utils/main.py --model multimodal --log_dir multimodal_fin_norm  --num_workers 10 --max_epoch 50 --batch_size 16 
+#~/anaconda3/envs/jupyter_clone/bin/python  emotion_utils/main.py --model audio --log_dir audio  --num_workers 10 --max_epoch 200 --batch_size 16
+#~/anaconda3/envs/jupyter_clone/bin/python  emotion_utils/main.py --model audio1 --log_dir audio_cnn --num_workers 10 --max_epoch 200 --batch_size 16
 exit

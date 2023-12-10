@@ -36,6 +36,7 @@ def get_model(model_name,from_checkpoint = None,  **kwargs):
         "audio1": AudioSpectrogramModel1,
         "text": LangModel,
         "multimodal": AudioLangModel,
+        "multimodalPre":AudioLangModelPre,
         "face": FaceModel,
     }
     if model_name not in model_dict:
@@ -132,7 +133,11 @@ def main():
         #shuffle=True,
         #sampler=sampler,
     )
-    checkpoint_callback = ModelCheckpoint(monitor="val_f1")
+    checkpoint_callback = ModelCheckpoint(
+        monitor="val_loss" ,
+        dirpath=f'saved_models/{args.args.log_dir}', 
+        filename='{epoch}-{val_loss:.2f}'
+    )
 
     test_dataloader = DataLoader(
         val_set,
